@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EC225 Workspace">
+<meta name="theme-color" content="#0a0e14">
+<title>EC225 Workspace</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #0a0e14; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+    height: 100vh; height: 100dvh; overflow: hidden;
+  }
+  /* ---- top bar ---- */
+  .ws-top {
+    height: 46px; display: flex; align-items: center; gap: 12px;
+    padding: 0 max(12px, env(safe-area-inset-left));
+    border-bottom: 1px solid #1f2937; background: #0d1117;
+  }
+  .ws-back {
+    display: inline-flex; align-items: center; gap: 4px; color: #58a6ff; text-decoration: none;
+    font-size: 13px; padding: 5px 10px 5px 6px; border: 1px solid #1f2937; border-radius: 8px;
+  }
+  .ws-back svg { width: 13px; height: 13px; }
+  .ws-title { font-size: 15px; font-weight: 600; letter-spacing: 0.3px; }
+  .ws-sub { font-size: 10.5px; color: #7d8590; letter-spacing: 0.8px; text-transform: uppercase; }
+  .ws-spacer { flex: 1; }
+  .beta-tag {
+    display: inline-block; padding: 1px 6px; border-radius: 4px;
+    background: rgba(245,158,11,0.16); border: 1px solid rgba(245,158,11,0.5);
+    color: #fbbf24; font-size: 9px; font-weight: 700; letter-spacing: 1px; vertical-align: 1px;
+  }
+  .pad-toggle {
+    display: none; background: #161b22; color: #e6edf3; border: 1px solid #374151;
+    border-radius: 8px; padding: 6px 12px; font-size: 13px;
+  }
+
+  /* ---- three columns ---- */
+  .ws-grid {
+    display: grid;
+    grid-template-columns: minmax(340px, 1fr) minmax(340px, 1fr) 340px;
+    height: calc(100vh - 46px); height: calc(100dvh - 46px);
+  }
+  .col { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-right: 1px solid #1f2937; }
+  .col-head { padding: 8px 10px; border-bottom: 1px solid #1f2937; background: #0d1117; }
+  .col-label { font-size: 10px; color: #7d8590; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+  .tab-group { font-size: 9.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.6px; margin: 0 2px 0 6px; }
+  .tab-group:first-child { margin-left: 0; }
+  .tab {
+    background: #0a0e14; border: 1px solid #374151; color: #9ca3af; border-radius: 6px;
+    padding: 5px 9px; font-size: 12px; -webkit-tap-highlight-color: transparent;
+  }
+  .tab.active { border-color: #58a6ff; color: #58a6ff; background: rgba(88,166,255,0.08); }
+  .frames { position: relative; flex: 1; min-height: 0; }
+  .frames iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #0a0e14; }
+  .frames iframe.show { display: block; }
+  .frames-empty { padding: 24px; color: #6b7280; font-size: 13px; }
+
+  /* ---- scratch pad ---- */
+  .pad { background: #0d1117; display: flex; flex-direction: column; min-height: 0; }
+  .pad-head { padding: 10px 12px; border-bottom: 1px solid #1f2937; }
+  .pad-title { font-size: 14px; font-weight: 600; }
+  .pad-hint { font-size: 10.5px; color: #7d8590; margin-top: 3px; line-height: 1.4; }
+  .pad-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 10px 4px; }
+  .pad-empty { color: #6b7280; font-size: 12px; line-height: 1.5; padding: 6px 2px; }
+  .entry {
+    border: 1px solid #1f2937; border-left: 3px solid #4ade80; border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 8px; background: #10151d;
+  }
+  .entry.pinned { border-left-color: #58a6ff; }
+  .entry.refused { border-left-color: #ef4444; }
+  .entry.note { border-left-color: #9ca3af; }
+  .e-head { display: flex; align-items: baseline; gap: 6px; }
+  .e-tool { font-size: 12.5px; font-weight: 600; flex: 1; min-width: 0; }
+  .e-mode { font-size: 11px; color: #9ca3af; font-weight: 400; }
+  .e-tag { font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; color: #4ade80; border: 1px solid rgba(74,222,128,0.4); border-radius: 4px; padding: 0 4px; }
+  .entry.pinned .e-tag { color: #58a6ff; border-color: rgba(88,166,255,0.4); }
+  .e-time { font-size: 10.5px; color: #7d8590; white-space: nowrap; }
+  .e-btn { background: none; border: 1px solid #374151; color: #9ca3af; border-radius: 5px; font-size: 11px; padding: 1px 6px; }
+  .e-in { font-size: 11px; color: #9ca3af; margin-top: 4px; line-height: 1.45; }
+  .e-res { font-size: 13.5px; margin-top: 4px; line-height: 1.45; }
+  .e-res b { font-weight: 600; color: #e6edf3; }
+  .e-res .lbl { color: #7d8590; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; margin-right: 4px; }
+  .entry.refused .e-res { color: #ef4444; font-size: 12px; }
+  .e-note { font-size: 11px; margin-top: 4px; line-height: 1.4; }
+  .e-note.warn { color: #fbbf24; } .e-note.err { color: #ef4444; } .e-note.ok { color: #4ade80; }
+  .e-fig { font-size: 10px; color: #6b7280; margin-top: 4px; }
+  .e-text { font-size: 13px; margin-top: 2px; white-space: pre-wrap; }
+  .pad-foot { border-top: 1px solid #1f2937; padding: 10px; }
+  .note-row { display: flex; gap: 6px; }
+  .note-row input {
+    flex: 1; min-width: 0; background: #0a0e14; border: 1px solid #374151; border-radius: 8px;
+    color: #e6edf3; font-size: 14px; padding: 8px 10px;
+  }
+  .btn {
+    background: #161b22; border: 1px solid #374151; color: #e6edf3; border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; -webkit-tap-highlight-color: transparent;
+  }
+  .btn.clear { margin-top: 8px; width: 100%; color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+  .pad-legal { font-size: 9.5px; color: #6b7280; margin-top: 8px; line-height: 1.5; text-align: center; }
+
+  /* ---- iPad portrait / small laptop: two tool columns, pad slides in ---- */
+  @media (max-width: 1099px) {
+    .ws-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .pad {
+      position: fixed; top: 46px; right: 0; bottom: 0; width: min(360px, 92vw); z-index: 50;
+      border-left: 1px solid #374151; box-shadow: -12px 0 30px rgba(0,0,0,0.5);
+      transform: translateX(105%); transition: transform 0.2s ease;
+    }
+    .pad.open { transform: none; }
+    .pad-toggle { display: inline-block; }
+  }
+  /* ---- phone: point to the normal tools ---- */
+  .narrow-note {
+    display: none; position: fixed; inset: 46px 0 0 0; z-index: 80; background: #0a0e14;
+    padding: 28px 22px; font-size: 14px; line-height: 1.6; color: #9ca3af;
+  }
+  .narrow-note a { color: #58a6ff; }
+  @media (max-width: 699px) { .narrow-note.on { display: block; } }
+</style>
+</head>
+<body>
+<div class="ws-top">
+  <a href="../" class="ws-back" aria-label="Back to tool list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>Tools</a>
+  <div>
+    <div class="ws-title">EC225 Workspace <span class="beta-tag">BETA</span></div>
+    <div class="ws-sub">Tools side by side &middot; iPad &amp; computer</div>
+  </div>
+  <div class="ws-spacer"></div>
+  <button class="pad-toggle" id="pad-toggle" onclick="wsTogglePad()">Scratch pad</button>
+</div>
+
+<div class="narrow-note on" id="narrow-note">
+  The workspace is built for an iPad or a computer &mdash; it puts two tools and a scratch pad side by side.
+  On a phone, use the tools one at a time from the <a href="../">tool list</a>.<br><br>
+  <a href="javascript:void(0)" onclick="wsDismissNarrow()">Open the workspace anyway</a>
+</div>
+
+<div class="ws-grid">
+  <div class="col">
+    <div class="col-head">
+      <div class="col-label">Departure &amp; performance</div>
+      <div class="tabs" id="left-tabs"></div>
+    </div>
+    <div class="frames" id="left-frames"></div>
+  </div>
+
+  <div class="col">
+    <div class="col-head">
+      <div class="col-label">Fuel planning</div>
+      <div class="tabs" id="centre-tabs"></div>
+    </div>
+    <div class="frames" id="centre-frames"></div>
+  </div>
+
+  <div class="pad" id="pad">
+    <div class="pad-head">
+      <div class="pad-title">Scratch pad</div>
+      <div class="pad-hint">Each tool&rsquo;s latest answer appears here as you work (<b>LIVE</b>). Tap &#128204; to keep a copy and start a fresh one.</div>
+    </div>
+    <div class="pad-list" id="pad-list"></div>
+    <div class="pad-foot">
+      <div class="note-row">
+        <input type="text" id="pad-note" placeholder="Add a note (NOTAM, weight change...)" onkeydown="if(event.key==='Enter'){wsAddNote();}">
+        <button class="btn" onclick="wsAddNote()">Add</button>
+      </div>
+      <button class="btn clear" onclick="wsClearPad()">Clear for new flight</button>
+      <div class="pad-legal">PILOT AID &middot; NOT A SUBSTITUTE FOR THE AFM<br>Every number here is copied from the tool that computed it &mdash; check it there, against its source chart.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// EC225 Workspace -- step 1 of 3 (2026-11-23)
+// -------------------------------------------------------------------
+// Holds the EXISTING tools side by side in iframes. It changes nothing
+// inside them: no chart data, no lookups, no maths live here. Every number
+// on the scratch pad is READ off a tool's own screen after that tool has
+// computed it. Same origin, so the page can read each tool's document.
+//
+// Why iframes and not a responsive rewrite of the tools: the July attempt
+// to make the Mission Fuel Planner's own layout stretch for iPad took nine
+// rounds of width bugs and was reverted (PROJECT.md, mission-fuel-beta
+// v4-v11). Here every tool stays exactly the build its tests cover.
+//
+// The riskiest part is reading each tool's answer correctly, so each tool
+// has its own small reader below, tested against every tool's golden cases
+// and refusal cases in _tests/2026-11-23-workspace-reader.js. A reader must
+// never turn a refusal into a number: it reports 'refused' (shown red) or
+// 'none' (nothing to record) instead.
+// ===================================================================
+
+// ---------- reading a tool's screen ----------
+function wsText(h){
+  return String(h == null ? '' : h)
+    .replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&mdash;/g, '—').replace(/&ndash;/g, '–')
+    .replace(/&minus;/g, '−').replace(/&deg;/g, '°').replace(/&middot;/g, '·')
+    .replace(/&times;/g, '×').replace(/&rsquo;/g, '’').replace(/&lsquo;/g, '‘')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#(\d+);/g, function(m, n){ return String.fromCharCode(+n); })
+    .replace(/&amp;/g, '&').replace(/&[a-z]+;/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+function wsEl(d, id){ return d && d.getElementById ? d.getElementById(id) : null; }
+function wsHtml(d, id){ const e = wsEl(d, id); return e ? String(e.innerHTML || '') : ''; }
+function wsTxt(d, id){ const e = wsEl(d, id); if (!e) return ''; return wsText(e.innerHTML !== undefined && e.innerHTML !== '' ? e.innerHTML : e.textContent); }
+function wsVal(d, id){ const e = wsEl(d, id); return e && e.value != null ? String(e.value).trim() : ''; }
+function wsOn(d, id){
+  const e = wsEl(d, id); if (!e) return false;
+  if (e.type === 'checkbox' || e.type === 'radio') return !!e.checked;
+  return !!(e.classList && e.classList.contains('active'));
+}
+function wsShown(d, id, how){ const e = wsEl(d, id); return !!(e && e.style && e.style.display === (how || 'block')); }
+function wsHasNum(s){ return /\d/.test(s); }
+function wsNum(v){ const n = Number(v); return (v !== '' && isFinite(n) && Math.abs(n) >= 1000) ? n.toLocaleString('en-US') : v; }
+function wsIn(label, v, unit){ return v === '' ? null : [label, wsNum(v) + (unit ? ' ' + unit : '')]; }
+function wsLbKg(s){ return s.replace(/ lb (?=[\d,]+ kg)/, ' lb / '); }
+// warning-box style lists ("• a<br>• b"); interpolation notes are routine, not worth a line
+function wsWarnLines(d, id){
+  return wsText(wsHtml(d, id).replace(/<br\s*\/?>/gi, '•')).split('•')
+    .map(function(s){ return s.trim(); })
+    .filter(function(s){ return s && !/^Bilinear interpolation/i.test(s); })
+    .map(function(s){ return ['warn', s]; });
+}
+function wsBanner(d, id){
+  const h = wsHtml(d, id), t = wsText(h);
+  if (!t) return null;
+  return [/banner err/.test(h) ? 'err' : /banner warn/.test(h) ? 'warn' : 'ok', t];
+}
+function wsRec(o){
+  return { status: o.status || 'answer', sub: o.sub || '', mode: o.mode || '',
+           inputs: (o.inputs || []).filter(Boolean), results: o.results || [], notes: o.notes || [] };
+}
+const WS_NONE = { status: 'none' };
+function wsWeightUnit(d){ return wsOn(d, 'unitLb') ? 'lb' : 'kg'; }
+
+// Live-weight tools (Cat A family, Cat B, single-engine OEI): one #weights box.
+function wsReadWeights(label, mode){
+  return function(d){
+    const h = wsHtml(d, 'weights'), t = wsText(h);
+    const inputs = [wsIn('Hp', wsVal(d, 'pa'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C')];
+    if (/error-value/.test(h)) return [wsRec({ status: 'refused', mode: mode ? mode(d) : '', inputs: inputs, results: [['', t]] })];
+    if (!wsHasNum(t)) return [WS_NONE];
+    return [wsRec({ mode: mode ? mode(d) : '', inputs: inputs, results: [[label, wsLbKg(t)]], notes: wsWarnLines(d, 'warning-box') })];
+  };
+}
+function wsCatAMode(d){
+  const ks = ['35','40','45','50','55','60','6580']; let v = '';
+  ks.forEach(function(k){ if (wsOn(d, 'vb-' + k)) v = (k === '6580' ? '65–80' : k); });
+  const parts = [];
+  if (v) parts.push('VTOSS ' + v);
+  if (wsOn(d, 'hoist-installed')) parts.push('Hoist');
+  if (wsOn(d, 'eft-installed')) parts.push('EFTs');
+  if (v === '65–80' && (wsOn(d, 'hoist-installed') || wsOn(d, 'eft-installed')) && wsVal(d, 'vtoss6580'))
+    parts.push('corr. at ' + wsVal(d, 'vtoss6580') + ' kt');
+  return parts.join(' · ');
+}
+// Result-card tools (Weight Index, R/C at Vy, Height Loss): #resultBody inside #resultCard.
+function wsReadCard(fn){
+  return function(d){
+    const h = wsHtml(d, 'resultBody'), t = wsText(h);
+    if (!t || !wsShown(d, 'resultCard')) return [WS_NONE];
+    return [fn(d, h, t)];
+  };
+}
+function wsEquip(d){
+  const p = [];
+  if (wsOn(d, 'eqHoist')) p.push('Hoist');
+  if (wsOn(d, 'eqTanks')) p.push('EFTs');
+  if (wsOn(d, 'fcop-margin')) p.push('7% MCP margin');
+  return p;
+}
+function wsReadPlanner(isRoute){
+  return function(d){
+    const shown = wsShown(d, 'results');
+    const banner = wsBanner(d, 'result-banner');
+    const mode = [wsOn(d, 'catA-btn') ? 'CAT A' : 'CAT B', wsOn(d, 'ifr-btn') ? 'IFR' : 'VFR'].concat(wsEquip(d)).join(' · ');
+    const inputs = [
+      wsIn('Dep', wsVal(d, 'dep-id')), wsIn('elev', wsVal(d, 'dep-elev'), 'ft'), wsIn('dep OAT', wsVal(d, 'dep-oat'), '°C'),
+      wsIn('Cruise', wsVal(d, 'hp'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C'),
+      wsIn('Dist', wsVal(d, 'dist'), 'NM'), wsIn('Wind', wsVal(d, 'wind'), 'kt'),
+      wsIn('ZFW', wsVal(d, 'zfw-lb'), 'lb'), wsIn('Fuel', wsVal(d, 'fuel-lb'), 'lb'),
+      wsIn('Max GWT', wsVal(d, 'maxgwt-lb'), 'lb')
+    ];
+    const notes = [];
+    if (isRoute){
+      const r = wsTxt(d, 'fpl-summary');
+      if (r) inputs.unshift(['Route', r.length > 70 ? r.slice(0, 70) + '…' : r]);
+      if (wsOn(d, 'fuel-auto')){ const fr = wsTxt(d, 'fuel-req'); if (fr) notes.push(['ok', fr]); }
+    }
+    if (!shown){
+      if (banner && banner[0] === 'err') return [wsRec({ status: 'refused', mode: mode, inputs: inputs, results: [['', banner[1]]] })];
+      return [WS_NONE];
+    }
+    if (banner) notes.push(banner);
+    return [wsRec({ mode: mode, inputs: inputs, notes: notes, results: [
+      ['Time', wsTxt(d, 'sum-time')], ['Distance', wsTxt(d, 'sum-dist')],
+      ['Fuel remaining', wsTxt(d, 'sum-fuel')], ['Landing wt', wsTxt(d, 'sum-weight')]
+    ].filter(function(r){ return r[1]; }) })];
+  };
+}
+function wsReadLevel(n){       // Cruise Torque (1) / Max Endurance (2)
+  return function(d){
+    const p = 'r' + n + '-', banner = wsBanner(d, p + 'banner');
+    const inputs = [wsIn('Hp', wsVal(d, 'hp' + n), 'ft'), wsIn('OAT', wsVal(d, 'oat' + n), '°C'),
+                    wsIn('Weight', wsVal(d, 'wt' + n + '-lb'), 'lb')];
+    if (n === 1) inputs.push(wsIn('Wind', wsVal(d, 'wind1'), 'kt'));
+    const mode = wsEquip(d).join(' · ');
+    if (!wsShown(d, 'result' + n)){
+      if (banner && banner[0] === 'err') return [wsRec({ status: 'refused', mode: mode, inputs: inputs, results: [['', banner[1]]] })];
+      return [WS_NONE];
+    }
+    const res = [['TAS', wsTxt(d, p + 'tas')]];
+    if (wsShown(d, p + 'actual-row', 'flex')) res.push(['Actual TAS', wsTxt(d, p + 'actual')]);
+    res.push(['Torque', wsTxt(d, p + 'torque')], ['Fuel', wsTxt(d, p + 'fuel')]);
+    if (n === 1) res.push(['AEO MCP', wsTxt(d, 'r1-aeomax')]);
+    return [wsRec({ mode: mode, inputs: inputs, results: res, notes: banner ? [banner] : [] })];
+  };
+}
+
+const WS_TOOLS = {
+  'hover': { app: 'ec225-hover-v1', tab: 'Hover', group: 'Hover', name: 'Hover IGE / OGE', fig: 'RFM 5.1.A1 Fig 5b-1 / 6b',
+    read: function(d){
+      const ige = wsTxt(d, 'ige-value'), oge = wsTxt(d, 'oge-value');
+      const inputs = [wsIn('Hp', wsVal(d, 'pa'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C')];
+      const err = function(id){ const e = wsEl(d, id); return !!(e && /\berror\b/.test(e.className || '')); };
+      if (err('ige-value') || err('oge-value')) return [wsRec({ status: 'refused', inputs: inputs, results: [['', err('ige-value') ? ige : oge]] })];
+      if (!wsHasNum(ige) && !wsHasNum(oge)) return [WS_NONE];
+      return [wsRec({ inputs: inputs, results: [['IGE', wsLbKg(ige)], ['OGE', wsLbKg(oge)]], notes: wsWarnLines(d, 'warning-box') })];
+    } },
+  'se-hi': { app: 'ec225-se-hi', tab: 'SE HI', group: 'Hover', name: 'Single-Engine Hover OGE · HI', fig: 'RFM SUP.11.1 Fig 5b', read: wsReadWeights('Max OGE wt') },
+  'se-lo': { app: 'ec225-se-lo', tab: 'SE LO', group: 'Hover', name: 'Single-Engine Hover OGE · LO', fig: 'RFM SUP.11.1 Fig 6b', read: wsReadWeights('Max OGE wt') },
+  'se-ct': { app: 'ec225-se-ct', tab: 'SE CT', group: 'Hover', name: 'Single-Engine Hover OGE · CT', fig: 'RFM SUP.11.1 Fig 7b', read: wsReadWeights('Max OGE wt') },
+  'hl': { app: 'ec225-hover-height-loss', tab: 'Ht Loss', group: 'Hover', name: 'Hover Height Loss (engine failure)', fig: 'RFM SUP.11.1 Fig 8b',
+    read: wsReadCard(function(d, h, t){
+      const inputs = [wsIn('Hp', wsVal(d, 'hp'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C'),
+                      wsIn('Weight', wsVal(d, 'weight'), wsWeightUnit(d)), wsIn('Wind', wsVal(d, 'wind'), 'kt')];
+      const mode = wsOn(d, 'modeTraining') ? 'Engine failure training' : 'Normal use';
+      if (/banner err/.test(h)) return wsRec({ status: 'refused', mode: mode, inputs: inputs, results: [['', t]] });
+      const m = t.match(/Height Loss ([\d,]+) ft/), wi = t.match(/([\d.]+) Weight Index/);
+      return wsRec({ mode: mode, inputs: inputs, results: [['Height loss', m ? m[1] + ' ft' : t]].concat(wi ? [['WI', wi[1]]] : []) });
+    }) },
+  'cat-a': { app: 'ec225-ca-cat-a', tab: 'Cat A', group: 'Takeoff', name: 'Cat A Max T/O & Landing (clear area)', fig: 'RFM CAT.A.A1 Figs 1b–6b / 2.2.A1 Fig 1b', read: wsReadWeights('Max T/O & Ldg wt', wsCatAMode) },
+  'helipad-to': { app: 'ec225-ca-helipad-takeoff', tab: 'Helipad T/O', group: 'Takeoff', name: 'Cat A Takeoff — Helipad', fig: 'RFM 2.2.A1 Fig 2b', read: wsReadWeights('Max T/O wt') },
+  'helipad-ldg': { app: 'ec225-ca-helipad', tab: 'Helipad Ldg', group: 'Takeoff', name: 'Cat A Landing — Helipad', fig: 'RFM 2.2.A1 Fig 3b', read: wsReadWeights('Max landing wt') },
+  'cat-b': { app: 'ec225-cb-to-lnd', tab: 'Cat B', group: 'Takeoff', name: 'Cat B Max T/O & Landing', fig: 'RFM 2.2.A1 Fig 4b-1', read: wsReadWeights('Max T/O & Ldg wt') },
+  'dist': { app: 'ec225-distances', tab: 'D1/D2', group: 'Takeoff', name: 'Takeoff Distances', fig: 'RFM CAT.A.A1 Fig 21',
+    // two independent calculations on one page, each with pre-filled defaults: only the one
+    // the pilot actually worked in is recorded
+    subInputs: { d12: ['vtoss', 'wind'], rev: ['rev-dist', 'rev-wind', 'rev-d1-btn', 'rev-d2-btn'] },
+    read: function(d){
+      const out = [];
+      const d1m = wsTxt(d, 'd1-m'), d1f = wsTxt(d, 'd1-ft'), d2m = wsTxt(d, 'd2-m'), d2f = wsTxt(d, 'd2-ft');
+      if (wsHasNum(d1m)) out.push(wsRec({ sub: 'd12', mode: 'D1 / D2',
+        inputs: [wsIn('VTOSS', wsVal(d, 'vtoss'), 'kt'), wsIn('Wind', wsVal(d, 'wind'), 'kt')],
+        results: [['D1', d1m + ' m / ' + d1f + ' ft'], ['D2', d2m + ' m / ' + d2f + ' ft']], notes: wsWarnLines(d, 'warning-box') }));
+      const rv = wsTxt(d, 'rev-vtoss');
+      if (wsHasNum(rv)) out.push(wsRec({ sub: 'rev', mode: 'Required VTOSS for ' + (wsOn(d, 'rev-d2-btn') ? 'D2 (clear 35 ft)' : 'D1 (rejected T/O)'),
+        inputs: [wsIn('Distance available', wsVal(d, 'rev-dist'), 'm'), wsIn('Wind', wsVal(d, 'rev-wind'), 'kt')],
+        results: [['VTOSS', rv]], notes: wsWarnLines(d, 'rev-warning-box') }));
+      return out.length ? out : [WS_NONE];
+    } },
+  'wi': { app: 'ec225-weight-index', tab: 'WI', group: 'Climb & cruise', name: 'Weight Index', fig: 'RFM 5.1.A1 Fig 9',
+    read: wsReadCard(function(d, h, t){
+      const inputs = [wsIn('Hp', wsVal(d, 'hp'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C'), wsIn('Weight', wsVal(d, 'weight'), wsWeightUnit(d))];
+      if (/banner err/.test(h) || !/Weight Index [\d.]+/.test(t)) return wsRec({ status: 'refused', inputs: inputs, results: [['', t]] });
+      const wi = t.match(/Weight Index ([\d.]+)/), eq = t.match(/([\d,]+ kg \/ [\d,]+ lb)/);
+      return wsRec({ inputs: inputs, results: [['WI', wi[1]]].concat(eq ? [['Equivalent', eq[1]]] : []) });
+    }) },
+  'rc': { app: 'ec225-rc-vy', tab: 'R/C Vy', group: 'Climb & cruise', name: 'Twin-Engine R/C at Vy', fig: 'RFM 5.1.A1 Fig 11b + Fig 9',
+    read: wsReadCard(function(d, h, t){
+      const inputs = [wsIn('Hp', wsVal(d, 'hp'), 'ft'), wsIn('OAT', wsVal(d, 'oat'), '°C'), wsIn('Weight', wsVal(d, 'weight'), wsWeightUnit(d))];
+      const wi = t.match(/([\d.]+) Weight Index/) || t.match(/Weight Index ([\d.]+)/);
+      if (/banner err/.test(h)) return wsRec({ status: 'refused', inputs: inputs, results: [['', t]] });
+      if (/banner warn/.test(h)) return wsRec({ inputs: inputs, results: [['R/C', 'above chart scale (more than 2,000 ft/min)']].concat(wi ? [['WI', wi[1]]] : []), notes: [['warn', t]] });
+      const rc = t.match(/Rate of Climb ([−\-]?[\d,]+) ft \/ min/);
+      return wsRec({ inputs: inputs, results: [['R/C', rc ? rc[1] + ' ft/min still air' : t]].concat(wi ? [['WI', wi[1]]] : []) });
+    }) },
+  'cruise': { app: 'ec225-cruise-torque', tab: 'Cruise', group: 'Climb & cruise', name: 'Cruise Torque & Fuel Burn', fig: 'RFM 10.2.A1 Figs 1–27', read: wsReadLevel(1) },
+  'endur': { app: 'ec225-max-endurance', tab: 'Endurance', group: 'Climb & cruise', name: 'Max Endurance', fig: 'RFM 10.2.A1 (E-line)', read: wsReadLevel(2) },
+  'mission': { app: 'ec225-mission-fuel', tab: 'Mission Fuel Planner', centre: true, name: 'Mission Fuel Planner', fig: 'RFM 10.2.A1 Figs 1–27', read: wsReadPlanner(false) },
+  'route': { app: 'ec225-mission-fuel-fpl', tab: 'Route Fuel Planner', centre: true, name: 'Route Fuel Planner', fig: 'RFM 10.2.A1 Figs 1–27', read: wsReadPlanner(true) }
+};
+const WS_LEFT = Object.keys(WS_TOOLS).filter(function(k){ return !WS_TOOLS[k].centre; });
+const WS_CENTRE = Object.keys(WS_TOOLS).filter(function(k){ return WS_TOOLS[k].centre; });
+
+// ---------- scratch pad state ----------
+const WS_PAD_KEY = 'ec225.workspace.pad';
+const WS_UI_KEY = 'ec225.workspace.ui';
+let wsPad = { entries: [] };
+let wsSeq = 0;
+function wsNow(){ return Date.now(); }
+function wsNewId(){ wsSeq++; return 'e' + wsNow().toString(36) + wsSeq; }
+function wsLoadPad(){
+  try { const r = localStorage.getItem(WS_PAD_KEY); if (r){ const p = JSON.parse(r); if (p && Array.isArray(p.entries)) wsPad = p; } }
+  catch (e) {}
+}
+function wsSavePad(){ try { localStorage.setItem(WS_PAD_KEY, JSON.stringify(wsPad)); } catch (e) {} }
+function wsSig(r){ return JSON.stringify([r.status, r.mode, r.inputs, r.results, r.notes]); }
+
+// One LIVE entry per tool (per sub-calculation): it follows the tool as the pilot
+// works. A blank screen ('none') never overwrites the last answer; a refusal does,
+// so the pad never shows a number the tool is currently refusing.
+// touched: ids of the inputs the pilot has worked in since the tool opened (see
+// wsAttach). A sub-calculation none of whose inputs were touched is not recorded.
+function wsCaptureFrom(key, doc, touched){
+  const tool = WS_TOOLS[key]; if (!tool) return 0;
+  let recs;
+  try { recs = tool.read(doc) || []; } catch (e) { return 0; }
+  let changed = 0;
+  recs.forEach(function(r){
+    if (!r || r.status === 'none') return;
+    if (touched && tool.subInputs && r.sub && tool.subInputs[r.sub] &&
+        !tool.subInputs[r.sub].some(function(id){ return touched.indexOf(id) !== -1; })) return;
+    const liveKey = key + (r.sub ? ':' + r.sub : '');
+    const sig = wsSig(r);
+    let e = null;
+    for (let i = 0; i < wsPad.entries.length; i++){
+      const x = wsPad.entries[i];
+      if (x.kind === 'calc' && !x.pinned && x.liveKey === liveKey){ e = x; break; }
+    }
+    if (e && e.sig === sig) return;
+    const fresh = { kind: 'calc', liveKey: liveKey, tool: key, name: tool.name, fig: tool.fig,
+                    status: r.status, mode: r.mode, inputs: r.inputs, results: r.results, notes: r.notes,
+                    sig: sig, t: wsNow(), pinned: false };
+    if (e){ fresh.id = e.id; wsPad.entries[wsPad.entries.indexOf(e)] = fresh; }
+    else { fresh.id = wsNewId(); wsPad.entries.push(fresh); }
+    changed++;
+  });
+  if (changed){ wsSavePad(); wsRenderPad(); }
+  return changed;
+}
+function wsPin(id){
+  const e = wsPad.entries.find(function(x){ return x.id === id; });
+  if (!e || e.kind !== 'calc' || e.pinned) return;
+  const copy = JSON.parse(JSON.stringify(e));
+  copy.id = wsNewId(); copy.pinned = true; copy.liveKey = null;
+  wsPad.entries.splice(wsPad.entries.indexOf(e), 0, copy);   // kept copy sits just above the live one
+  wsSavePad(); wsRenderPad();
+}
+function wsDelete(id){
+  wsPad.entries = wsPad.entries.filter(function(x){ return x.id !== id; });
+  wsSavePad(); wsRenderPad();
+}
+function wsAddNote(){
+  const el = document.getElementById('pad-note');
+  const t = el ? String(el.value || '').trim() : '';
+  if (!t) return;
+  wsPad.entries.push({ kind: 'note', id: wsNewId(), text: t, t: wsNow() });
+  el.value = '';
+  wsSavePad(); wsRenderPad();
+}
+function wsClearPad(skipConfirm){
+  if (!skipConfirm && typeof confirm === 'function' && !confirm('Clear the scratch pad for a new flight?')) return;
+  wsPad = { entries: [] };
+  wsSavePad(); wsRenderPad();
+}
+
+// ---------- rendering ----------
+function wsEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function wsWhen(t){
+  const d = new Date(t), now = new Date();
+  const hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return hm;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + hm;
+}
+function wsEntryHtml(e){
+  if (e.kind === 'note'){
+    return '<div class="entry note"><div class="e-head"><span class="e-tool">Note</span><span class="e-time">' + wsWhen(e.t) + '</span>'
+      + '<button class="e-btn" onclick="wsDelete(\'' + e.id + '\')" aria-label="Delete">&times;</button></div>'
+      + '<div class="e-text">' + wsEsc(e.text) + '</div></div>';
+  }
+  const cls = 'entry' + (e.pinned ? ' pinned' : '') + (e.status === 'refused' ? ' refused' : '');
+  let h = '<div class="' + cls + '"><div class="e-head"><span class="e-tool">' + wsEsc(e.name)
+    + (e.mode ? ' <span class="e-mode">· ' + wsEsc(e.mode) + '</span>' : '') + '</span>'
+    + '<span class="e-tag">' + (e.pinned ? 'Kept' : 'Live') + '</span>'
+    + '<span class="e-time">' + wsWhen(e.t) + '</span>'
+    + (e.pinned ? '' : '<button class="e-btn" onclick="wsPin(\'' + e.id + '\')" aria-label="Keep a copy">&#128204;</button>')
+    + '<button class="e-btn" onclick="wsDelete(\'' + e.id + '\')" aria-label="Delete">&times;</button></div>';
+  if (e.inputs && e.inputs.length)
+    h += '<div class="e-in">' + e.inputs.map(function(p){ return wsEsc(p[0]) + ' ' + wsEsc(p[1]); }).join(' · ') + '</div>';
+  h += '<div class="e-res">' + (e.status === 'refused'
+      ? 'No answer — ' + wsEsc(e.results.map(function(r){ return r[1]; }).join(' '))
+      : e.results.map(function(r){ return (r[0] ? '<span class="lbl">' + wsEsc(r[0]) + '</span>' : '') + '<b>' + wsEsc(r[1]) + '</b>'; }).join('<br>')) + '</div>';
+  (e.notes || []).forEach(function(n){ h += '<div class="e-note ' + wsEsc(n[0]) + '">' + wsEsc(n[1]) + '</div>'; });
+  h += '<div class="e-fig">' + wsEsc(e.fig) + '</div></div>';
+  return h;
+}
+function wsRenderPad(){
+  const list = document.getElementById('pad-list');
+  if (!list) return;
+  list.innerHTML = wsPad.entries.length
+    ? wsPad.entries.map(wsEntryHtml).join('')
+    : '<div class="pad-empty">Nothing yet. Work in the tools on the left and in the middle &mdash; each answer appears here as you go.</div>';
+  const tg = document.getElementById('pad-toggle');
+  if (tg) tg.textContent = 'Scratch pad' + (wsPad.entries.length ? ' (' + wsPad.entries.length + ')' : '');
+}
+
+// ---------- the tool frames ----------
+const wsFrames = {};
+const wsTimers = {};
+let wsUi = { left: 'hover', centre: 'mission' };
+function wsSaveUi(){ try { localStorage.setItem(WS_UI_KEY, JSON.stringify(wsUi)); } catch (e) {} }
+function wsLoadUi(){
+  try { const r = localStorage.getItem(WS_UI_KEY); if (r){ const u = JSON.parse(r);
+    if (u && WS_TOOLS[u.left] && !WS_TOOLS[u.left].centre) wsUi.left = u.left;
+    if (u && WS_TOOLS[u.centre] && WS_TOOLS[u.centre].centre) wsUi.centre = u.centre; } }
+  catch (e) {}
+}
+const wsTouched = {};
+function wsSchedule(key, doc){
+  if (!wsTouched[key] || !wsTouched[key].length) return;   // nothing recorded until the pilot works in the tool
+  clearTimeout(wsTimers[key]);
+  wsTimers[key] = setTimeout(function(){ wsCaptureFrom(key, doc, wsTouched[key]); }, 600);
+}
+// On every load of a tool's page (first open, or its own Refresh App): hide its
+// "back to tool list" link -- inside the workspace that would load the tool list
+// into the column -- and watch its screen for new answers.
+function wsAttach(key, frame){
+  let doc;
+  try { doc = frame.contentDocument; } catch (e) { return; }
+  if (!doc || !doc.body) return;
+  try {
+    const st = doc.createElement('style');
+    st.textContent = '.back-row{display:none !important}';
+    (doc.head || doc.body).appendChild(st);
+  } catch (e) {}
+  if (typeof MutationObserver === 'function'){
+    try {
+      const mo = new MutationObserver(function(){ wsSchedule(key, doc); });
+      mo.observe(doc.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    } catch (e) {}
+  }
+  // A tool opens showing whatever it was pre-filled or restored with. That is not
+  // the pilot's work yet, so nothing goes on the pad until he types or taps in it.
+  wsTouched[key] = [];
+  const touch = function(ev){
+    const t = ev && ev.target;
+    const ids = [];
+    if (t && t.id) ids.push(t.id);
+    // a +/- stepper has no id of its own; credit the field its handler names, e.g. adjust('vtoss', 1)
+    let el = t, hops = 0;
+    while (el && hops < 3 && !ids.length){
+      const oc = el.getAttribute ? el.getAttribute('onclick') : null;
+      if (oc) (oc.match(/'([\w-]+)'/g) || []).forEach(function(q){ ids.push(q.slice(1, -1)); });
+      el = el.parentElement; hops++;
+    }
+    if (!ids.length) ids.push('(tap)');
+    ids.forEach(function(id){ if (wsTouched[key].indexOf(id) === -1) wsTouched[key].push(id); });
+    wsSchedule(key, doc);
+  };
+  try { ['input', 'change', 'click'].forEach(function(t){ doc.addEventListener(t, touch, true); }); } catch (e) {}
+}
+function wsShowTool(key){
+  const tool = WS_TOOLS[key]; if (!tool) return;
+  const side = tool.centre ? 'centre' : 'left';
+  const holder = document.getElementById(side + '-frames');
+  if (!wsFrames[key] && holder){
+    const f = document.createElement('iframe');
+    f.title = tool.name;
+    f.setAttribute('data-tool', key);
+    f.addEventListener('load', function(){ wsAttach(key, f); });
+    f.src = '../' + tool.app + '/';
+    holder.appendChild(f);
+    wsFrames[key] = f;
+  }
+  (tool.centre ? WS_CENTRE : WS_LEFT).forEach(function(k){
+    if (wsFrames[k]) wsFrames[k].classList.toggle('show', k === key);
+    const b = document.getElementById('tab-' + k);
+    if (b) b.classList.toggle('active', k === key);
+  });
+  wsUi[side] = key; wsSaveUi();
+}
+function wsBuildTabs(){
+  const lt = document.getElementById('left-tabs'), ct = document.getElementById('centre-tabs');
+  if (lt){
+    let h = '', g = '';
+    WS_LEFT.forEach(function(k){
+      const t = WS_TOOLS[k];
+      if (t.group !== g){ g = t.group; h += '<span class="tab-group">' + wsEsc(g) + '</span>'; }
+      h += '<button class="tab" id="tab-' + k + '" onclick="wsShowTool(\'' + k + '\')">' + wsEsc(t.tab) + '</button>';
+    });
+    lt.innerHTML = h;
+  }
+  if (ct) ct.innerHTML = WS_CENTRE.map(function(k){
+    return '<button class="tab" id="tab-' + k + '" onclick="wsShowTool(\'' + k + '\')">' + wsEsc(WS_TOOLS[k].tab) + '</button>';
+  }).join('');
+}
+// A Cat A / Cat B / helipad tool's "Use this weight in the Fuel Planner" saves the
+// weight on the device. A planner open beside it never "comes back to the tab", so
+// its own visibility check never fires -- ask it to re-check, with its own function.
+window.addEventListener('storage', function(ev){
+  if (ev.key !== 'ec225.handoff.maxgwt') return;
+  WS_CENTRE.forEach(function(k){
+    const f = wsFrames[k];
+    try { if (f && f.contentWindow && typeof f.contentWindow.renderHandoffStrip === 'function') f.contentWindow.renderHandoffStrip(); }
+    catch (e) {}
+  });
+});
+function wsTogglePad(){ const p = document.getElementById('pad'); if (p) p.classList.toggle('open'); }
+function wsDismissNarrow(){ const n = document.getElementById('narrow-note'); if (n) n.classList.remove('on'); }
+
+function wsInit(){
+  wsLoadPad(); wsLoadUi(); wsBuildTabs(); wsRenderPad();
+  wsShowTool(wsUi.left); wsShowTool(wsUi.centre);
+}
+wsInit();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function() {});
+  });
+}
+</script>
+</body>
+</html>
