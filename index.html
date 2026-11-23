@@ -102,7 +102,7 @@
     background: #161b22; border: 1px solid #374151; color: #e6edf3; border-radius: 8px;
     padding: 8px 12px; font-size: 13px; -webkit-tap-highlight-color: transparent;
   }
-  .btn.clear { margin-top: 8px; width: 100%; color: #fca5a5; border-color: rgba(239,68,68,0.4); }
+  .btn.clear { color: #fca5a5; border-color: rgba(239,68,68,0.4); }
   .pad-legal { font-size: 9.5px; color: #6b7280; margin-top: 8px; line-height: 1.5; text-align: center; }
 
   /* ---- iPad portrait / small laptop: two tool columns, pad slides in ---- */
@@ -123,6 +123,34 @@
   }
   .narrow-note a { color: #58a6ff; }
   @media (max-width: 699px) { .narrow-note.on { display: block; } }
+
+  /* ---- Print / PDF: the scratch pad alone, as a clean sheet ---- */
+  .print-head { display: none; }
+  .foot-row { display: flex; gap: 6px; margin-top: 8px; }
+  .foot-row .btn { flex: 1; }
+  .btn.print { color: #93c5fd; border-color: rgba(88,166,255,0.4); }
+  @media print {
+    @page { margin: 12mm; }
+    html, body { height: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
+    .ws-top, .col, .pad-head, .note-row, .foot-row, .pad-toggle, .narrow-note, .e-btn { display: none !important; }
+    .ws-grid { display: block !important; height: auto !important; }
+    .pad { position: static !important; transform: none !important; box-shadow: none !important; border: 0 !important;
+           background: #fff !important; width: auto !important; display: block !important; }
+    .pad-list { overflow: visible !important; padding: 0 !important; }
+    .print-head { display: block; color: #000; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid #000; }
+    .print-head .ph-title { font-size: 16pt; font-weight: 700; }
+    .print-head .ph-sub { font-size: 9pt; color: #333; margin-top: 3px; line-height: 1.4; }
+    .entry { background: #fff !important; color: #000; border: 1px solid #888; border-left-width: 4px;
+             break-inside: avoid; page-break-inside: avoid; }
+    .entry.pinned { border-left-color: #1d4ed8; } .entry.refused { border-left-color: #b91c1c; } .entry.note { border-left-color: #666; }
+    .e-tool, .e-res b, .e-text { color: #000 !important; }
+    .e-in, .e-fig, .e-time, .e-mode, .e-res .lbl { color: #333 !important; }
+    .e-tag { color: #000 !important; border-color: #666 !important; }
+    .entry.refused .e-res { color: #b91c1c !important; }
+    .e-note.warn { color: #8a5a00 !important; } .e-note.err { color: #b91c1c !important; } .e-note.ok { color: #166534 !important; }
+    .pad-foot { border: 0 !important; padding: 8px 0 0 !important; }
+    .pad-legal { color: #333 !important; font-size: 8pt; }
+  }
 </style>
 </head>
 <body>
@@ -164,13 +192,17 @@
       <div class="pad-title">Scratch pad</div>
       <div class="pad-hint">Each tool&rsquo;s latest answer appears here as you work (<b>LIVE</b>). Tap &#128204; to keep a copy and start a fresh one.</div>
     </div>
+    <div class="print-head" id="print-head"></div>
     <div class="pad-list" id="pad-list"></div>
     <div class="pad-foot">
       <div class="note-row">
         <input type="text" id="pad-note" placeholder="Add a note (NOTAM, weight change...)" onkeydown="if(event.key==='Enter'){wsAddNote();}">
         <button class="btn" onclick="wsAddNote()">Add</button>
       </div>
-      <button class="btn clear" onclick="wsClearPad()">Clear for new flight</button>
+      <div class="foot-row">
+        <button class="btn print" onclick="wsPrint()">Print / PDF</button>
+        <button class="btn clear" onclick="wsClearPad()">Clear for new flight</button>
+      </div>
       <div class="pad-legal">PILOT AID &middot; NOT A SUBSTITUTE FOR THE AFM<br>Every number here is copied from the tool that computed it &mdash; check it there, against its source chart.</div>
     </div>
   </div>
@@ -605,6 +637,33 @@ window.addEventListener('storage', function(ev){
     catch (e) {}
   });
 });
+// ---------- Print / PDF ----------
+// Prints the scratch pad alone (print CSS hides the tools). On the iPad the print
+// sheet also offers Save to Files / share as PDF -- that is the saved copy.
+function wsPrintHeadHtml(when, entries){
+  const calcs = entries.filter(function(e){ return e.kind === 'calc'; });
+  const kept = calcs.filter(function(e){ return e.pinned; }).length;
+  const refused = calcs.filter(function(e){ return e.status === 'refused'; }).length;
+  const stamp = when.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ' '
+    + String(when.getHours()).padStart(2, '0') + ':' + String(when.getMinutes()).padStart(2, '0');
+  return '<div class="ph-title">EC225 Scratch Pad</div>'
+    + '<div class="ph-sub">Printed ' + stamp + ' &middot; ' + calcs.length + ' result' + (calcs.length === 1 ? '' : 's')
+    + (kept ? ' (' + kept + ' kept)' : '') + (refused ? ' &middot; ' + refused + ' with no answer' : '')
+    + '<br>LIVE = the tool&rsquo;s latest answer when printed &middot; KEPT = a copy saved earlier. '
+    + 'Each entry shows the inputs it was computed from and its RFM figure.</div>';
+}
+function wsPrint(){
+  if (!wsPad.entries.length){ if (typeof alert === 'function') alert('The scratch pad is empty — nothing to print.'); return false; }
+  const refused = wsPad.entries.filter(function(e){ return e.kind === 'calc' && e.status === 'refused'; }).length;
+  if (refused && typeof confirm === 'function' &&
+      !confirm(refused + (refused === 1 ? ' entry on the pad is' : ' entries on the pad are') + ' a refusal (No answer). Print anyway?')) return false;
+  const h = document.getElementById('print-head');
+  if (h) h.innerHTML = wsPrintHeadHtml(new Date(), wsPad.entries);
+  wsRenderPad();
+  if (typeof window.print === 'function') window.print();
+  return true;
+}
+
 function wsTogglePad(){ const p = document.getElementById('pad'); if (p) p.classList.toggle('open'); }
 function wsDismissNarrow(){ const n = document.getElementById('narrow-note'); if (n) n.classList.remove('on'); }
 
@@ -614,7 +673,35 @@ function wsInit(){
 }
 wsInit();
 
+// ---------- show a new version as soon as it has downloaded ----------
+// SAME FUNCTION as in bendmetal.github.io/index.html -- keep the two identical
+// (_tests/2026-11-23-update-reload-and-print.js compares them).
+// The page always opens from its saved copy (that is what makes it work offline),
+// so after an update the OLD version showed until the next visit. When the new
+// service worker takes over (it calls skipWaiting + clients.claim), reload once.
+//   - not on a first install (no previous controller): nothing old is showing
+//   - not while the page says it is busy (e.g. saving tools for offline)
+//   - at most once per 15 s, so it can never loop
+function ec225ReloadOnUpdate(sw, store, reload, isBusy){
+  if (!sw || !sw.addEventListener) return false;
+  const hadController = !!sw.controller;
+  let done = false;
+  sw.addEventListener('controllerchange', function(){
+    if (!hadController || done) return;
+    if (isBusy && isBusy()) return;
+    let last = 0;
+    try { last = Number(store.getItem('ec225-sw-reloaded-at') || 0); } catch (e) {}
+    if (Date.now() - last < 15000) return;
+    try { store.setItem('ec225-sw-reloaded-at', String(Date.now())); } catch (e) {}
+    done = true;
+    reload();
+  });
+  return true;
+}
+
 if ('serviceWorker' in navigator) {
+  let ss = null; try { ss = sessionStorage; } catch (e) {}
+  ec225ReloadOnUpdate(navigator.serviceWorker, ss, function(){ location.reload(); }, null);
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('sw.js').catch(function() {});
   });
